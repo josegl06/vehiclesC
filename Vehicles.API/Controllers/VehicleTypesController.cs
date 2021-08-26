@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Threading.Tasks;
 using Vehicles.API.Data;
 using Vehicles.API.Data.Entities;
 
@@ -58,9 +55,29 @@ namespace Vehicles.API.Controllers
         {
             if (ModelState.IsValid)
             {
-                _context.Add(vehicleType);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+
+                try
+                {
+                    _context.Add(vehicleType);
+                    await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (DbUpdateException dDbUpdateException)
+                {
+                    if (dDbUpdateException.InnerException.Message.Contains("duplicate"))
+                    {
+                        ModelState.AddModelError(string.Empty, "Ya existe este tipo de vehiculo.");
+                    }
+                    else
+                    {
+                        ModelState.AddModelError(string.Empty, dDbUpdateException.InnerException.Message);
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    ModelState.AddModelError(string.Empty, e.Message);
+                }
             }
             return View(vehicleType);
         }
@@ -99,19 +116,25 @@ namespace Vehicles.API.Controllers
                 {
                     _context.Update(vehicleType);
                     await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
                 }
-                catch (DbUpdateConcurrencyException)
+                catch (DbUpdateException dDbUpdateException)
                 {
-                    if (!VehicleTypeExists(vehicleType.Id))
+                    if (dDbUpdateException.InnerException.Message.Contains("duplicate"))
                     {
-                        return NotFound();
+                        ModelState.AddModelError(string.Empty, "Ya existe este tipo de vehiculo.");
                     }
                     else
                     {
-                        throw;
+                        ModelState.AddModelError(string.Empty, dDbUpdateException.InnerException.Message);
                     }
+
                 }
-                return RedirectToAction(nameof(Index));
+                catch (Exception e)
+                {
+                    ModelState.AddModelError(string.Empty, e.Message);
+                }
+
             }
             return View(vehicleType);
         }
@@ -131,23 +154,11 @@ namespace Vehicles.API.Controllers
                 return NotFound();
             }
 
-            return View(vehicleType);
-        }
-
-        // POST: VehicleTypes/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var vehicleType = await _context.VehicleTypes.FindAsync(id);
             _context.VehicleTypes.Remove(vehicleType);
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
-        private bool VehicleTypeExists(int id)
-        {
-            return _context.VehicleTypes.Any(e => e.Id == id);
-        }
+
     }
 }
